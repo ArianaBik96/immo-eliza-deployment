@@ -1,0 +1,33 @@
+# Use the official Python image as a base image
+FROM python:3.9-slim
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the contents of the local directory to the working directory in the container
+COPY . .
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone the repository
+RUN git clone https://github.com/ArianaBik96/immo-eliza-deployment.git
+
+# Change directory to the cloned repository
+WORKDIR /app/immo-eliza-deployment
+
+# Create and activate a virtual environment
+RUN python3 -m venv venv
+RUN . venv/bin/activate
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the port number on which your Streamlit app will run (default is 8501)
+EXPOSE 8501
+
+# Command to run the Streamlit app
+CMD ["streamlit", "run", "app.py"]
