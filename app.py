@@ -12,6 +12,7 @@ st.set_page_config(page_title="Price prediction", page_icon=':house:', layout='w
 class SessionState:
     def __init__(self):
         self.selected_property = None
+        self.predicted_price = None
 
 # Function to get or create session state
 def get_session_state():
@@ -20,7 +21,60 @@ def get_session_state():
         session = st._session_state = SessionState()
     return session
 
+def expander_input(epc_values, condition_values, subtype, type_of_kitchen, type_floodzone):
+    # Define CSS for the expander containers
+    expander_css = """
+        <style>
+            div[data-testid="stExpander"]{
+                background-color: #2D2D2D !important;
+                border: 1px solid #FFFFFF !important;
+                border-radius: 5px !important;
+                padding: 10px !important;
+            }
+            div[data-testid="stExpander"]{
+                background-color: #2D2D2D !important;
+                padding: 10px !important;
+            }
+        </style>
+    """
+    # Inject custom CSS for expander styling
+    st.markdown(expander_css, unsafe_allow_html=True)
+    
+    # Create the expander for the address group
+    with st.expander("Address", expanded=False):
+        postcode = st.text_input("Postcode: (!)", 2100)
+        folder, file_name = "src", "postcode_mapping.json"
+        all_postalcode = import_postalcode(folder, file_name)
+        region, province, district, locality, latitude, longitude = autofill_fields(all_postalcode, postcode)
 
+        # Input fields with autocomplete and grayed-out styling
+        region = st.text_input("Region:", value=region, key="region", disabled=True, help="Autofilled based on postcode")
+        province = st.text_input("Province:", value=province, key="province", disabled=True, help="Autofilled based on postcode")
+        district = st.text_input("District:", value=district, key="district", disabled=True, help="Autofilled based on postcode")
+        locality = st.text_input("City:", value=locality, key="locality", disabled=True, help="Autofilled based on postcode")
+
+    # Create the expander for the general group
+    with st.expander("General", expanded=False):
+        subtype = st.selectbox("Select the subtype of the property",subtype )
+        condition = st.select_slider('State the condition for the property', condition_values)
+        facade = st.number_input("Number of facades", value=1)
+
+    # Create the expander for the interior group
+    with st.expander("Interior", expanded=False):
+        surface = st.text_input('Measurements of the surface in m² (!)', 120)
+        bedrooms = st.text_input('Number of bedrooms(!)', 2)
+        kitchen = st.selectbox('Type of kitchen', type_of_kitchen)
+        fireplaceExists = st.checkbox("Is there a fireplace?")
+
+    # Create the expander for the energy group
+    with st.expander("Energy", expanded=False):
+        epcScores = st.select_slider('EPC score', epc_values)
+
+    # Create the expander for the Risks group
+    with st.expander("Town planning and risks", expanded=False):
+        floodzone = st.selectbox('Is the property in a floodzone?', type_floodzone)
+
+        return postcode, region, province,district,locality,subtype, condition, facade, epcScores,bedrooms, surface, kitchen, fireplaceExists, floodzone
 
 def import_postalcode(folder,file):
     file_path = os.path.join(folder,file)
@@ -32,7 +86,7 @@ def import_postalcode(folder,file):
     return postcode_mapping
 
 # Function to auto-fill region, province, district, and locality based on postcode
-def autofill_fields(postcode_mapping):
+def autofill_fields(postcode_mapping, postcode):
     if postcode in postcode_mapping:
         region = postcode_mapping[postcode]["region"]
         province = postcode_mapping[postcode]["province"]
@@ -53,6 +107,15 @@ def autofill_fields(postcode_mapping):
         longitude = 0.0
 
     return region, province, district, locality, latitude, longitude
+
+# Function to export data to CSV
+def export_data_to_csv(data, filename='predicted_prices.csv'):
+    src_dir = "src"  # Define the directory where you want to save the file
+    file_path = os.path.join(src_dir, filename)  # Combine directory and filename
+    
+    data.to_csv(file_path, index=False)  # Save data to CSV
+    
+    return file_path
 
 def set_background_image(image_path):
     # Load image from file
@@ -150,18 +213,42 @@ def get_property_type():
     type_of_property = st.radio("Select property type:", ["House", "Apartment"])
     return type_of_property
 
-def handle_prediction(data_new_property, type_of_property):
+def check_mandatory_fields(mandatory_fields_filled):
+    if mandatory_fields_filled:
+        # Perform prediction
+        predicted_price = handle_prediction(data_new_property, type_of_property)
+        st.success(f"The predicted price is {predicted_price}")
+    else:
+        st.write("Please fill in:")
+        # Change style of mandatory fields to red
+        if not postcode:
+            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
+            st.write("postcode")
+        if not epcScores:
+            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
+            st.write("EPC score")
+        if not bedrooms:
+            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
+            st.write("Number of bedrooms")
+        if not surface:
+            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
+            st.write("Measurements of the living surface")
 
+
+def handle_prediction(data_new_property, type_of_property):
+    session = get_session_state()
     if type_of_property == 'House':
         # Call the predict function with appropriate data
-        predicted_price = predict_house_price(data_new_property)
+        session.predicted_price = predict_house_price(data_new_property)
     elif type_of_property == 'Apartment':
-        predicted_price = predict_apartment_price(data_new_property)
+        session.predicted_price = predict_apartment_price(data_new_property)
     else:
         st.write("DIDN'T GET HOUSE OR APARTMENT")
+    
     # Display the predicted price
-    return predicted_price
-        
+    return session.predicted_price
+
+
 
 white_text_css = """
     <style>
@@ -180,111 +267,62 @@ print(background_image_path)
 # Set background image
 set_background_image(background_image_path)
 
-epc_values = ['A++', 'A+','A', 'B', 'C', 'D', 'E', 'F', 'G']
-condition_values = ['AS_NEW','JUST_RENOVATED','GOOD','TO_BE_DONE_UP', 'TO_RESTORE', 'TO_RENOVATE']
-type_values = ["House", "Apartment"]
-type_of_kitchen = ['','INSTALLED', 'HYPER_EQUIPPED','SEMI_EQUIPPED', 'NOT_INSTALLED']
-type_floodzone = ['','NON_FLOOD_ZONE' ,'RECOGNIZED_FLOOD_ZONE' ,'POSSIBLE_FLOOD_ZONE','POSSIBLE_N_CIRCUMSCRIBED_FLOOD_ZONE', 'CIRCUMSCRIBED_WATERSIDE_ZONE','RECOGNIZED_N_CIRCUMSCRIBED_FLOOD_ZONE' 'CIRCUMSCRIBED_FLOOD_ZONE', 'RECOGNIZED_N_CIRCUMSCRIBED_WATERSIDE_FLOOD_ZONE', 'POSSIBLE_N_CIRCUMSCRIBED_WATERSIDE_ZONE']
 
 
 st.title("Predict the price of your property :moneybag:")
 
 type_of_property = get_property_buttons()
+epc_values = ['A++', 'A+','A', 'B', 'C', 'D', 'E', 'F', 'G']
+condition_values = ['AS_NEW','JUST_RENOVATED','GOOD','TO_BE_DONE_UP', 'TO_RESTORE', 'TO_RENOVATE']
+type_values = ["House", "Apartment"]
+type_of_kitchen = ['','INSTALLED', 'HYPER_EQUIPPED','SEMI_EQUIPPED', 'NOT_INSTALLED']
+type_floodzone = ['','NON_FLOOD_ZONE' ,'RECOGNIZED_FLOOD_ZONE' ,'POSSIBLE_FLOOD_ZONE','POSSIBLE_N_CIRCUMSCRIBED_FLOOD_ZONE', 'CIRCUMSCRIBED_WATERSIDE_ZONE','RECOGNIZED_N_CIRCUMSCRIBED_FLOOD_ZONE' 'CIRCUMSCRIBED_FLOOD_ZONE', 'RECOGNIZED_N_CIRCUMSCRIBED_WATERSIDE_FLOOD_ZONE', 'POSSIBLE_N_CIRCUMSCRIBED_WATERSIDE_ZONE']
+if type_of_property == 'House':
+    subtype = ['HOUSE', 'VILLA', 'MIXED_USE_BUILDING', 'MANOR_HOUSE', 'TOWN_HOUSE', 'OTHER_PROPERTY', 'MANSION', 'COUNTRY_COTTAGE', 'CHALET', 'EXCEPTIONAL_PROPERTY', 'BUNGALOW', 'FARMHOUSE']
+else:
+    subtype = ['APARTMENT', 'TRIPLEX', 'DUPLEX', 'FLAT_STUDIO', 'PENTHOUSE', 'GROUND_FLOOR', 'LOFT']
 
-# Define CSS for the expander containers
-expander_css = """
-    <style>
-        div[data-testid="stExpander"]{
-            background-color: #2D2D2D !important;
-            border: 1px solid #FFFFFF !important;
-            border-radius: 5px !important;
-            padding: 10px !important;
-        }
-        div[data-testid="stExpander"]{
-            background-color: #2D2D2D !important;
-            padding: 10px !important;
-        }
-    </style>
-"""
-# Inject custom CSS for expander styling
-st.markdown(expander_css, unsafe_allow_html=True)
-# Create the expander for the address group
-with st.expander("Address", expanded=False):
-    postcode = st.text_input("Postcode: (!)")
-    folder, file_name = "src", "postcode_mapping.json"
-    all_postalcode = import_postalcode(folder, file_name)
-    region, province, district, locality , latitude, longitude = autofill_fields(all_postalcode)
+postcode, region, province,district,locality,subtype, condition, facade, epcScores,bedrooms, surface, kitchen, fireplaceExists, floodzone= expander_input(epc_values,condition_values, subtype, type_of_kitchen, type_floodzone)
 
-    # Input fields with autocomplete and grayed-out styling
-    region= st.text_input("Region:", value=region, key="region", disabled=True, help="Autofilled based on postcode")
-    province= st.text_input("Province:", value=province, key="province", disabled=True, help="Autofilled based on postcode")
-    district= st.text_input("District:", value=district, key="district", disabled=True, help="Autofilled based on postcode")
-    locality= st.text_input("City:", value=locality, key="locality", disabled=True, help="Autofilled based on postcode")
 
-# Create the expander for the general group
-with st.expander("General", expanded=False):
-    condition=st.select_slider('State the condition for the property', condition_values)
-    facade = st.number_input("Number of facades", value=1)
-
-# Create the expander for the interior group
-with st.expander("Interior", expanded=False):
-    surface=st.text_input('Measurements of the surface in m² (!)')
-    bedrooms=st.text_input('Number of bedrooms(!)')
-    kitchen = st.selectbox('Type of kitchen', type_of_kitchen)
-    fireplaceExists =st.checkbox("Is there a fireplace?")
-
-# Create the expander for the energy group
-with st.expander("Energy", expanded=False):
-    epcScores=st.select_slider('EPC score',  epc_values)
-
-# Create the expander for the Risks group
-with st.expander("Town planning and risks", expanded=False):
-    floodzone=st.selectbox('Is the property in a floodzone?',type_floodzone)
-
-    
 new_house_data = { 
     'postcode' : [postcode],
     'region' : [region],
     'province' : [province],
     'district': [district],
     'locality': [locality], 
-    'latitude' : [latitude],
-    'longitude' : [longitude],
-    'subtype' : [type],
+    'subtype' : [subtype],
+    'condition' : [condition],
+    'facade': [facade],
     'epcScores': [epcScores],
     'bedrooms': [bedrooms],
-    'surface': [surface]
+    'surface': [surface],
+    'kitchen' : [kitchen],
+    'fireplace' : [fireplaceExists],
+    'in_floodzone' : [floodzone]
 }
 
 data_new_property = pd.DataFrame(new_house_data)
 
 # Define mandatory input fields
 mandatory_fields = ['postcode', 'epcScores', 'bedrooms', 'surface']
-
-# Define button to trigger prediction
 if st.button('Predict the price'):
     # Check if mandatory fields are filled
     mandatory_fields_filled = all([postcode, epcScores, bedrooms, surface])
+    check_mandatory_fields(mandatory_fields_filled)
 
-    if mandatory_fields_filled:
-        # Perform prediction
-        predicted_price= handle_prediction(data_new_property, type_of_property)
-        st.success(f"The predicted price is {predicted_price}")
+
+# Create a button for data export
+if st.button('Export Predicted Prices'):
+    session = get_session_state()
+    if session.predicted_price:
+        # Call the export function and get the filename
+        exported_filename = export_data_to_csv(data_new_property)
+        # Provide a download link for the exported file
+        st.markdown(f"### File downloaded succesfully")
     else:
-        st.write("Please fill in:")
-        # Change style of mandatory fields to red
-        if not postcode:
-            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
-            st.write("postcode")
-        if not epcScores:
-            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
-            st.write("EPC score")
-        if not bedrooms:
-            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
-            st.write("Number of bedrooms")
-        if not surface:
-            st.markdown('<style>div[data-baseweb="input"] input{border: 1px solid #FF0000;}</style>', unsafe_allow_html=True)
-            st.write("Measurements of the living surface")
+        st.warning("Please predict the price before exporting.")
+
 
 # print(f'THE LONGITUDE IS {new_house_data['longitude']}')
 # print(f'THE LATITUDE IS {new_house_data['latitude']}')
