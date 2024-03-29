@@ -1,17 +1,20 @@
-# Use an official Python runtime as the base image
-FROM python:3.12.2
+# Use the official Python image as a base image
+FROM python:3.12
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
-
-# Copy the application files into the container
-COPY . .
+# Copy the dependencies file to the working directory
+COPY requirements.txt .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Expose the port that Streamlit runs on
-EXPOSE 8502
+# Copy the app.py directly to the root directory of the container
+COPY app.py .
 
-# Command to run the Streamlit app
-CMD ["streamlit", "run", "app.py"]
+# Set the environment variable for the port your app runs on
+ENV PORT=8502
+
+# Expose the port your Streamlit app runs on
+EXPOSE $PORT
+
+# Command to run the application
+CMD [ "streamlit", "run", "--server.port", "8502", "app.py" ]
