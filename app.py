@@ -313,7 +313,7 @@ if st.button('Predict the price'):
 
 
 # Create a button for data export
-if st.button('Export Predicted Prices'):
+if st.button('Export property info and predicted price'):
     session = get_session_state()
     if session.predicted_price:
         # Call the export function and get the filename
