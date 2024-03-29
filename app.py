@@ -21,60 +21,40 @@ def get_session_state():
         session = st._session_state = SessionState()
     return session
 
-def expander_input(epc_values, condition_values, subtype, type_of_kitchen, type_floodzone):
-    # Define CSS for the expander containers
-    expander_css = """
-        <style>
-            div[data-testid="stExpander"]{
-                background-color: #2D2D2D !important;
-                border: 1px solid #FFFFFF !important;
-                border-radius: 5px !important;
-                padding: 10px !important;
-            }
-            div[data-testid="stExpander"]{
-                background-color: #2D2D2D !important;
-                padding: 10px !important;
-            }
-        </style>
-    """
-    # Inject custom CSS for expander styling
-    st.markdown(expander_css, unsafe_allow_html=True)
-    
-    # Create the expander for the address group
+
+def expander_input(epc_values, condition_values, subtype_values, type_of_kitchen_values, type_floodzone_values):
+
     with st.expander("Address", expanded=False):
         postcode = st.text_input("Postcode: (!)")
         folder, file_name = "src", "postcode_mapping.json"
         all_postalcode = import_postalcode(folder, file_name)
         region, province, district, locality, latitude, longitude = autofill_fields(all_postalcode, postcode)
 
-        # Input fields with autocomplete and grayed-out styling
         region = st.text_input("Region:", value=region, key="region", disabled=True, help="Autofilled based on postcode")
         province = st.text_input("Province:", value=province, key="province", disabled=True, help="Autofilled based on postcode")
         district = st.text_input("District:", value=district, key="district", disabled=True, help="Autofilled based on postcode")
         locality = st.text_input("City:", value=locality, key="locality", disabled=True, help="Autofilled based on postcode")
 
-    # Create the expander for the general group
     with st.expander("General", expanded=False):
-        subtype = st.selectbox("Select the subtype of the property",subtype )
+        subtype = st.selectbox("Select the subtype of the property", subtype_values)
         condition = st.select_slider('State the condition for the property', condition_values)
         facade = st.number_input("Number of facades", value=1)
 
-    # Create the expander for the interior group
     with st.expander("Interior", expanded=False):
         surface = st.text_input('Measurements of the surface in m² (!)')
         bedrooms = st.text_input('Number of bedrooms(!)')
-        kitchen = st.selectbox('Type of kitchen', type_of_kitchen)
+        kitchen = st.selectbox('Type of kitchen', type_of_kitchen_values)
         fireplaceExists = st.checkbox("Is there a fireplace?")
 
-    # Create the expander for the energy group
     with st.expander("Energy", expanded=False):
         epcScores = st.select_slider('EPC score', epc_values)
 
-    # Create the expander for the Risks group
     with st.expander("Town planning and risks", expanded=False):
-        floodzone = st.selectbox('Is the property in a floodzone?', type_floodzone)
+        floodzone = st.selectbox('Is the property in a floodzone?', type_floodzone_values)
 
-        return postcode, region, province,district,locality,subtype, condition, facade, epcScores,bedrooms, surface, kitchen, fireplaceExists, floodzone
+    return postcode, region, province, district, locality, subtype, condition, facade, epcScores, bedrooms, surface, kitchen, fireplaceExists, floodzone
+
+
 
 def import_postalcode(folder,file):
     file_path = os.path.join(folder,file)

@@ -6,7 +6,7 @@
 
  ## 📝 Description
 
- This repository contains the deployment files for "Immobilien Eliza", a Streamlit web application for real estate analysis and visualization. The application provides users with insights into real estate data, including property prices, trends, and visualizations.
+ This repository contains the deployment of the price prediction model. The application provides users an interface where they can put in some features of their house or apartment. Based on that data, the application will predict the price of that property.
 
  ## 📦 Repo structure
 
@@ -70,8 +70,3 @@
  ## 📌 Personal Situation
 
  This project was done as part of the AI Bootcamp at BeCode.org.
-
-
-
-
-https://immo-eliza-deployment-ariana-bik.streamlit.app
