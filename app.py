@@ -42,7 +42,7 @@ def expander_input(epc_values, condition_values, subtype, type_of_kitchen, type_
     
     # Create the expander for the address group
     with st.expander("Address", expanded=False):
-        postcode = st.text_input("Postcode: (!)", 2100)
+        postcode = st.text_input("Postcode: (!)")
         folder, file_name = "src", "postcode_mapping.json"
         all_postalcode = import_postalcode(folder, file_name)
         region, province, district, locality, latitude, longitude = autofill_fields(all_postalcode, postcode)
@@ -61,8 +61,8 @@ def expander_input(epc_values, condition_values, subtype, type_of_kitchen, type_
 
     # Create the expander for the interior group
     with st.expander("Interior", expanded=False):
-        surface = st.text_input('Measurements of the surface in m² (!)', 120)
-        bedrooms = st.text_input('Number of bedrooms(!)', 2)
+        surface = st.text_input('Measurements of the surface in m² (!)')
+        bedrooms = st.text_input('Number of bedrooms(!)')
         kitchen = st.selectbox('Type of kitchen', type_of_kitchen)
         fireplaceExists = st.checkbox("Is there a fireplace?")
 
