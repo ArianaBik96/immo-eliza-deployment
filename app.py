@@ -4,8 +4,8 @@ import json
 import pandas as pd
 import base64
 from streamlit import session_state as st_session
-from prediction.predict_houses import predict_house_price 
-from prediction.predict_apartments import predict_apartment_price 
+from predict_houses import predict_house_price 
+from predict_apartments import predict_apartment_price 
 
 st.set_page_config(page_title="Price prediction", page_icon=':house:', layout='wide')
 
